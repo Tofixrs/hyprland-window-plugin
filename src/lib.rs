@@ -8,6 +8,7 @@ use hyprland::shared::HyprData;
 use hyprland::dispatch::*;
 use serde::Deserialize;
 use std::fs;
+use std::path::{Path, PathBuf};
 
 #[derive(Deserialize)]
 pub struct Config {
@@ -65,7 +66,7 @@ fn get_matches(input: RString, config: &Config) -> RVec<Match> {
     clients.truncate(config.max_entries);
     clients.into_iter().map(|(client, _)| Match {
         title: client.class.clone().into(),  
-        icon: ROption::RNone,
+        icon: get_icon_name(&client.class).into(),
         description: ROption::RNone,
         id: ROption::RNone,
         use_pango: false,
@@ -77,6 +78,24 @@ fn get_matches(input: RString, config: &Config) -> RVec<Match> {
 fn handler(selection: Match) -> HandleResult {
     let window = WindowIdentifier::ClassRegularExpression(&selection.title);
     Dispatch::call(DispatchType::FocusWindow(window)).expect("failed to focus window");
-
+    
     HandleResult::Close
+}
+
+fn get_desktop_file_path(class: &str) -> Option<PathBuf> {
+    let data_dirs = glib::system_data_dirs();
+    for dir in data_dirs.iter() {
+        let desktop_file_path = dir.join(format!("applications/{class}.desktop"));
+        if desktop_file_path.exists() {
+            return Some(desktop_file_path)
+        }
+    }
+
+    None
+}
+
+fn get_icon_name(class: &str) -> Option<RString> {
+    let desktop_file_path = get_desktop_file_path(class)?;
+    let desktop_file = freedesktop_entry_parser::parse_entry(desktop_file_path).ok()?;
+    return desktop_file.section("Desktop Entry").attr("Icon").map(|s| s.to_string().into());
 }
