@@ -3,12 +3,12 @@ use anyrun_plugin::*;
 use anyrun_interface::{self, HandleResult, Match, PluginInfo};
 use anyrun_macros::{get_matches, handler, info, init};
 use fuzzy_matcher::FuzzyMatcher;
-use hyprland::data::{Clients};
+use hyprland::data::Clients;
 use hyprland::shared::HyprData;
 use hyprland::dispatch::*;
 use serde::Deserialize;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 #[derive(Deserialize)]
 pub struct Config {
@@ -95,7 +95,17 @@ fn get_desktop_file_path(class: &str) -> Option<PathBuf> {
 }
 
 fn get_icon_name(class: &str) -> Option<RString> {
-    let desktop_file_path = get_desktop_file_path(class)?;
-    let desktop_file = freedesktop_entry_parser::parse_entry(desktop_file_path).ok()?;
-    return desktop_file.section("Desktop Entry").attr("Icon").map(|s| s.to_string().into());
+    let desktop_file_path = get_desktop_file_path(class);
+
+    match desktop_file_path {
+        Some(desktop_file_path) => {
+            let desktop_file = freedesktop_entry_parser::parse_entry(desktop_file_path).ok()?;
+
+            desktop_file.section("Desktop Entry").attr("Icon").map(|s| s.to_string().into())
+        }
+        None => {
+            Some(class.into())
+        }
+    }
+
 }
